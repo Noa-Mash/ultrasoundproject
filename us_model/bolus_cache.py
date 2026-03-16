@@ -6,6 +6,7 @@ Follows the same design patterns as cache_utils.py (SVD cache)
 
 import os
 import json
+import shutil
 import numpy as np
 import hashlib
 
@@ -216,7 +217,6 @@ def validate_bolus_cache(cache_dir, data_dir, n_svd, roi_coords, smooth_window):
 def clear_bolus_cache(cache_dir):
     """Delete bolus cache directory if it exists."""
     if os.path.exists(cache_dir):
-        import shutil
         shutil.rmtree(cache_dir)
         print(f"✓ Bolus cache deleted: {cache_dir}")
         return True
