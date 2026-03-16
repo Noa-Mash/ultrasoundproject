@@ -7,6 +7,8 @@ import scipy.io as sio
 from typing import Dict, Tuple
 
 
+
+
 def load_ceus_data(mat_filepath: str) -> Dict:
     """
     Load IQ data and metadata from PALA .mat file.
@@ -16,7 +18,7 @@ def load_ceus_data(mat_filepath: str) -> Dict:
         
     Returns:
         data_dict with:
-            - 'IQ_magnitude': Magnitude of IQ [z, x, t], float32
+            - 'IQ': Complex IQ data [z, x, t], complex64
             - 'params': Dictionary with acquisition parameters
     """
     print(f"Loading {mat_filepath}...")
@@ -27,16 +29,13 @@ def load_ceus_data(mat_filepath: str) -> Dict:
     # Extract IQ data
     IQ = mat_data['IQ']  # [z, x, t] complex
     
-    # Compute magnitude
-    IQ_magnitude = np.abs(IQ).astype(np.float32)
-    
     # Extract parameters from UF struct
     UF = mat_data['UF']
     
     params = {
         'TwFreq': float(UF['TwFreq'][0, 0]),           # MHz
         'FrameRateUF': float(UF['FrameRateUF'][0, 0]), # Hz
-        'shape': IQ_magnitude.shape,
+        'shape': IQ.shape,
         'filename': mat_filepath
     }
     
@@ -50,6 +49,8 @@ def load_ceus_data(mat_filepath: str) -> Dict:
     print(f"  Frame rate: {params['FrameRateUF']} Hz")
     
     return {
-        'IQ_magnitude': IQ_magnitude,
+        'IQ': IQ.astype(np.complex64),
         'params': params
     }
+    
+    

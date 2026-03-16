@@ -1,31 +1,32 @@
 """
 PALA-style clutter filtering using SVD
 Separates tissue (coherent, slow) from microbubbles (sparse, fast)
+CORRECT VERSION: Works with complex IQ data to preserve phase information
 """
 
 import numpy as np
 
 
-def filter_tissue(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.ndarray:
+def filter_tissue(IQ_complex: np.ndarray, n_components: int = 50) -> np.ndarray:
     """
-    Extract tissue component using SVD.
+    Extract tissue component using SVD on complex IQ data.
     Tissue = coherent, slow-moving signal captured by first N singular values.
     
     Args:
-        IQ_magnitude: Magnitude image [z, x, t]
+        IQ_complex: Complex IQ data [z, x, t] (complex128 or complex64)
         n_components: Number of SVD components for tissue (default: 50)
         
     Returns:
-        tissue: Tissue component [z, x, t], float32
+        tissue: Tissue component [z, x, t], complex64
     """
     print(f"Filtering tissue (SVD with {n_components} components)...")
     
-    z, x, t = IQ_magnitude.shape
+    z, x, t = IQ_complex.shape
     
     # Reshape to matrix: [pixels, time]
-    M = IQ_magnitude.reshape(-1, t)
+    M = IQ_complex.reshape(-1, t)
     
-    # SVD decomposition
+    # SVD decomposition on complex data
     print("  Computing SVD...")
     U, S, Vt = np.linalg.svd(M, full_matrices=False)
     
@@ -34,11 +35,11 @@ def filter_tissue(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.ndarra
     S_tissue = np.zeros_like(S)
     S_tissue[:n_keep] = S[:n_keep]
     
-    # Reconstruct tissue
+    # Reconstruct tissue (preserves complex values)
     M_tissue = U @ np.diag(S_tissue) @ Vt
     
     # Reshape back to [z, x, t]
-    tissue = M_tissue.reshape(z, x, t).astype(np.float32)
+    tissue = M_tissue.reshape(z, x, t).astype(np.complex64)
     
     # Log energy captured
     energy_ratio = np.sum(S_tissue**2) / np.sum(S**2) * 100
@@ -47,26 +48,26 @@ def filter_tissue(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.ndarra
     return tissue
 
 
-def filter_microbubbles(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.ndarray:
+def filter_microbubbles(IQ_complex: np.ndarray, n_components: int = 50) -> np.ndarray:
     """
-    Extract microbubble component using SVD.
+    Extract microbubble component using SVD on complex IQ data.
     Bubbles = fast, sparse signal in remaining SVD components.
     
     Args:
-        IQ_magnitude: Magnitude image [z, x, t]
+        IQ_complex: Complex IQ data [z, x, t] (complex128 or complex64)
         n_components: Number of SVD components to remove as tissue (default: 50)
         
     Returns:
-        bubbles: Microbubble component [z, x, t], float32
+        bubbles: Microbubble component [z, x, t], complex64
     """
     print(f"Filtering microbubbles (removing {n_components} tissue components)...")
     
-    z, x, t = IQ_magnitude.shape
+    z, x, t = IQ_complex.shape
     
     # Reshape to matrix: [pixels, time]
-    M = IQ_magnitude.reshape(-1, t)
+    M = IQ_complex.reshape(-1, t)
     
-    # SVD decomposition
+    # SVD decomposition on complex data
     print("  Computing SVD...")
     U, S, Vt = np.linalg.svd(M, full_matrices=False)
     
@@ -75,14 +76,11 @@ def filter_microbubbles(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.
     S_bubbles = S.copy()
     S_bubbles[:n_remove] = 0
     
-    # Reconstruct bubbles
+    # Reconstruct bubbles (preserves complex values)
     M_bubbles = U @ np.diag(S_bubbles) @ Vt
     
     # Reshape back to [z, x, t]
-    bubbles = M_bubbles.reshape(z, x, t).astype(np.float32)
-    
-    # Clip to non-negative (magnitude should be >= 0)
-    bubbles = np.maximum(bubbles, 0)
+    bubbles = M_bubbles.reshape(z, x, t).astype(np.complex64)
     
     # Log energy captured
     energy_ratio = np.sum(S_bubbles**2) / np.sum(S**2) * 100
@@ -91,26 +89,26 @@ def filter_microbubbles(IQ_magnitude: np.ndarray, n_components: int = 50) -> np.
     return bubbles
 
 
-def filter_both(IQ_magnitude: np.ndarray, n_components: int = 50) -> tuple:
+def filter_both(IQ_complex: np.ndarray, n_components: int = 50) -> tuple:
     """
     Extract both tissue and microbubbles in one pass (more efficient).
     
     Args:
-        IQ_magnitude: Magnitude image [z, x, t]
+        IQ_complex: Complex IQ data [z, x, t] (complex128 or complex64)
         n_components: Number of SVD components for tissue
         
     Returns:
-        tissue: Tissue component [z, x, t]
-        bubbles: Microbubble component [z, x, t]
+        tissue: Tissue component [z, x, t], complex64
+        bubbles: Microbubble component [z, x, t], complex64
     """
     print(f"Filtering tissue and microbubbles (SVD with {n_components} components)...")
     
-    z, x, t = IQ_magnitude.shape
+    z, x, t = IQ_complex.shape
     
     # Reshape to matrix
-    M = IQ_magnitude.reshape(-1, t)
+    M = IQ_complex.reshape(-1, t)
     
-    # SVD decomposition
+    # SVD decomposition on complex data
     print("  Computing SVD...")
     U, S, Vt = np.linalg.svd(M, full_matrices=False)
     
@@ -120,12 +118,11 @@ def filter_both(IQ_magnitude: np.ndarray, n_components: int = 50) -> tuple:
     S_tissue = np.zeros_like(S)
     S_tissue[:n_keep] = S[:n_keep]
     M_tissue = U @ np.diag(S_tissue) @ Vt
-    tissue = M_tissue.reshape(z, x, t).astype(np.float32)
+    tissue = M_tissue.reshape(z, x, t).astype(np.complex64)
     
-    # Bubbles: remaining components
+    # Bubbles: remaining components (preserves complex values)
     M_bubbles = M - M_tissue
-    bubbles = M_bubbles.reshape(z, x, t).astype(np.float32)
-    bubbles = np.maximum(bubbles, 0)
+    bubbles = M_bubbles.reshape(z, x, t).astype(np.complex64)
     
     # Log results
     tissue_energy = np.sum(S_tissue**2) / np.sum(S**2) * 100
