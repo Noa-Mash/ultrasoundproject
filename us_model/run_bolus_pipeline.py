@@ -192,14 +192,18 @@ def run_pipeline(data_dir, roi_coords=None, n_svd=5, smooth_window=301,
     print(f"ROI used: {results['roi_coords']}")
     print(f"Files processed: {results['n_files']}")
     print(f"Duration: {results['time'][-1]:.1f}s")
-    print(f"Enhancement: "
-          f"{results['bubbles_smooth'].max() / results['bubbles_smooth'][:50].mean():.2f}x")
+    baseline_mean = results['bubbles_smooth'][:50].mean()
+    if baseline_mean > 0:
+        print(f"Enhancement: "
+              f"{results['bubbles_smooth'].max() / baseline_mean:.2f}x")
     print(f"Peak time: {fit_results['derived']['t_peak']:.2f}s")
-    r_squared = 1 - (
-        np.var(fit_results['observed'] - fit_results['predicted_curve'])
-        / np.var(fit_results['observed'])
-    )
-    print(f"R²: {r_squared:.4f}")
+    obs_var = np.var(fit_results['observed'])
+    if obs_var > 0:
+        r_squared = 1 - (
+            np.var(fit_results['observed'] - fit_results['predicted_curve'])
+            / obs_var
+        )
+        print(f"R²: {r_squared:.4f}")
     print("=" * 70)
 
     return results, fit_results
